@@ -151,11 +151,57 @@ export const App: React.FC = () => {
   const [newWorldSeed, setNewWorldSeed] = useState('');
   const [newWorldPlot, setNewWorldPlot] = useState('');
 
+  // PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+
   const [combatState, setCombatState] = useState<CombatState>({
     isActive: false, round: 0, turnIndex: 0, participants: [], log: []
   });
 
   const activeCharacter = party[activeCharIndex] || party[0];
+
+  useEffect(() => {
+      const handleBeforeInstallPrompt = (e: any) => {
+          e.preventDefault();
+          setDeferredPrompt(e);
+          setShowInstallModal(true); // Auto show modal if installable
+      };
+      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = () => {
+      if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((choiceResult: any) => {
+              if (choiceResult.outcome === 'accepted') {
+                  console.log('User accepted the install prompt');
+              } else {
+                  console.log('User dismissed the install prompt');
+              }
+              setDeferredPrompt(null);
+              setShowInstallModal(false);
+          });
+      }
+  };
+
+  const handleShare = async () => {
+      if (navigator.share) {
+          try {
+              await navigator.share({
+                  title: 'Leitor Onisciente RPG',
+                  text: 'Jogue RPG com um Mestre IA!',
+                  url: window.location.href,
+              });
+          } catch (error) {
+              console.log('Error sharing', error);
+          }
+      } else {
+          alert('Link copiado: ' + window.location.href);
+          navigator.clipboard.writeText(window.location.href);
+      }
+  };
 
   const addMoney = (char: Character, type: 'copper'|'iron'|'gold'|'platinum', amount: number): Character => {
       const newWallet = { ...char.wallet };
@@ -342,11 +388,18 @@ export const App: React.FC = () => {
       let effectMsg = "";
       let keepItem = false;
 
+      // FIXED POTION LOGIC
       if (itemName.includes("livro") || itemName.includes("mapa")) {
           keepItem = true;
           effectMsg = `📖 Você lê ${item.name}.`;
-      } else if (itemName.includes("poção") || itemName.includes("vida")) {
-          const heal = Math.floor(Math.random() * 8) + 2;
+      } else if (itemName.includes("mana") || itemName.includes("energia") || itemName.includes("magia")) {
+          // MANA POTION
+          const restore = Math.floor(Math.random() * 8) + 5;
+          char.mp.current = Math.min(char.mp.max, char.mp.current + restore);
+          effectMsg = `🧪 Bebeu ${item.name}: +${restore} MP.`;
+      } else if (itemName.includes("poção") || itemName.includes("vida") || itemName.includes("cura") || itemName.includes("health")) {
+          // HEALTH POTION
+          const heal = Math.floor(Math.random() * 8) + 4;
           char.hp.current = Math.min(char.hp.max, char.hp.current + heal);
           effectMsg = `🧪 Bebeu ${item.name}: +${heal} HP.`;
       } else if (itemName.includes("leite")) {
@@ -357,16 +410,22 @@ export const App: React.FC = () => {
       }
 
       const newParty = [...party];
+      newParty[activeCharIndex] = char; // Update the char in the party
+
       if (!keepItem) {
-          const invIndex = char.inventory.findIndex(i => i.id === item.id);
-          if (invIndex !== -1 && (char.inventory[invIndex].quantity || 1) > 1) {
-             char.inventory[invIndex].quantity = (char.inventory[invIndex].quantity || 1) - 1;
-          } else {
-             char.inventory = char.inventory.filter(i => i.id !== item.id);
+          const currentInv = newParty[activeCharIndex].inventory;
+          const invIndex = currentInv.findIndex(i => i.id === item.id);
+          
+          if (invIndex !== -1) {
+              if ((currentInv[invIndex].quantity || 1) > 1) {
+                  currentInv[invIndex].quantity = (currentInv[invIndex].quantity || 1) - 1;
+              } else {
+                  currentInv.splice(invIndex, 1);
+              }
           }
+          newParty[activeCharIndex].inventory = [...currentInv]; // Trigger strict re-render
       }
       
-      newParty[activeCharIndex] = { ...char };
       setParty(newParty);
       setMessages(prev => [...prev, { id: uuidv4(), role: 'system', text: effectMsg, timestamp: new Date() }]);
   };
@@ -910,6 +969,36 @@ export const App: React.FC = () => {
     <div className="h-[100dvh] w-screen flex flex-col md:flex-row overflow-hidden relative">
       {showDevModal && <DevModal />}
       
+      {/* PWA INSTALL PROMPT MODAL - Prominent Center Screen */}
+      {showInstallModal && deferredPrompt && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in zoom-in-95">
+              <div className="bg-rpg-900 border-2 border-rpg-accent rounded-xl p-6 max-w-sm w-full shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rpg-accent to-purple-600"></div>
+                  <div className="text-center mb-6">
+                      <div className="w-20 h-20 bg-rpg-800 rounded-2xl mx-auto mb-4 border border-rpg-700 flex items-center justify-center shadow-lg">
+                          <span className="text-4xl">⚔️</span>
+                      </div>
+                      <h3 className="text-2xl font-bold text-white mb-2">Instalar App</h3>
+                      <p className="text-sm text-gray-400">Instale o <strong>Leitor Onisciente RPG</strong> para jogar em tela cheia, offline e sem barras do navegador.</p>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                      <button 
+                          onClick={handleInstallClick}
+                          className="w-full bg-rpg-accent hover:bg-orange-600 text-white font-bold py-3.5 rounded-lg shadow-lg transform transition active:scale-95 flex items-center justify-center gap-2"
+                      >
+                          <span>📥</span> Instalar Agora
+                      </button>
+                      <button 
+                          onClick={() => setShowInstallModal(false)}
+                          className="w-full bg-transparent text-gray-500 hover:text-white text-sm py-2"
+                      >
+                          Agora não
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {activeNotifications.length > 0 && (
           <div className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4">
               <div className="bg-rpg-800 p-6 rounded-lg border border-pink-500 shadow-2xl max-w-sm w-full text-center">
@@ -923,10 +1012,10 @@ export const App: React.FC = () => {
           </div>
       )}
       
-      <div className="md:hidden h-14 bg-rpg-800 border-b border-rpg-700 flex items-center justify-between px-4 z-40 shrink-0 w-full">
+      <div className="md:hidden h-14 bg-rpg-800 border-b border-rpg-700 flex items-center justify-between px-4 z-40 shrink-0 w-full safe-area-top">
         <span className="font-fantasy text-rpg-accent text-lg truncate max-w-[120px]">Leitor Onisciente</span>
         <div className="flex gap-2">
-            <PlayerProfile character={activeCharacter} compact={true} />
+            <PlayerProfile character={activeCharacter} compact={true} onClick={toggleDevMode} />
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-white p-2 bg-rpg-700 rounded px-3 font-bold border border-rpg-600 z-50">
                 {sidebarOpen ? '✕' : '☰'}
             </button>
@@ -936,7 +1025,7 @@ export const App: React.FC = () => {
       <main className="flex-1 h-full relative order-2 md:order-1 flex flex-col min-h-0 w-full">
         <div className="bg-rpg-900 border-b border-rpg-700 p-2 flex gap-2 justify-between items-center shrink-0 overflow-x-auto">
              <div className="flex gap-2 items-center">
-                 <div className="hidden md:block mr-2"><PlayerProfile character={activeCharacter} /></div>
+                 <div className="hidden md:block mr-2"><PlayerProfile character={activeCharacter} onClick={toggleDevMode} /></div>
                 {party.map((p, idx) => (
                     <button key={p.id} onClick={() => setActiveCharIndex(idx)} className={`relative flex flex-col items-center justify-center w-10 h-10 rounded border transition-all ${activeCharIndex === idx ? 'bg-rpg-800 border-rpg-accent text-white scale-110' : 'border-transparent text-gray-500 hover:text-gray-300'}`} title={p.name}>
                         <div className={`w-3 h-3 rounded-full mb-1 ${activeCharIndex === idx ? 'bg-blue-500' : 'bg-gray-600'}`}></div>
@@ -985,8 +1074,8 @@ export const App: React.FC = () => {
            {activeTab === 'social' && <Social character={activeCharacter} party={party} onAction={handleSocialAction} isDevMode={isDevMode} isNsfwMode={isNsfwMode} />}
            {activeTab === 'table' && <GameTable party={party} monsters={monsters} quests={quests} seed={worldSeed} />}
         </div>
-        <div className="p-2 bg-rpg-900 border-t border-rpg-700 flex justify-end shrink-0">
-            <button onClick={toggleDevMode} className="text-gray-600 hover:text-white text-xs flex items-center gap-2" title="Modo Desenvolvedor">{isDevMode ? <span className="text-red-500 font-bold">DEV MODE ON</span> : 'v1.1'} {isDevMode ? '🔓' : '🔒'}</button>
+        <div className="p-2 bg-rpg-900 border-t border-rpg-700 flex justify-end items-center gap-2 shrink-0">
+            <button onClick={handleShare} className="text-gray-600 hover:text-white text-xs flex items-center gap-1" title="Compartilhar">🔗 Share</button>
         </div>
       </aside>
       

@@ -1,0 +1,21 @@
+
+{
+  "appId": "com.itan.rpg",
+  "appName": "Leitor Onisciente RPG",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "http://192.168.x.x:5173",
+    "cleartext": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#0f0e17",
+      "androidSplashResourceName": "splash",
+      "showSpinner": true,
+      "spinnerColor": "#ff8906"
+    }
+  }
+}

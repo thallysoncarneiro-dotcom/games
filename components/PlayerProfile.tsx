@@ -5,15 +5,20 @@ import { Character } from '../types';
 interface PlayerProfileProps {
   character: Character;
   compact?: boolean;
+  onClick?: () => void;
 }
 
-export const PlayerProfile: React.FC<PlayerProfileProps> = ({ character, compact = false }) => {
+export const PlayerProfile: React.FC<PlayerProfileProps> = ({ character, compact = false, onClick }) => {
   const hpPercent = (character.hp.current / character.hp.max) * 100;
   const mpPercent = (character.mp.current / character.mp.max) * 100;
   const xpPercent = (character.xp.current / character.xp.max) * 100;
 
   return (
-    <div className={`flex items-center gap-3 bg-rpg-800 border-rpg-700 rounded-lg shadow-md ${compact ? 'p-2 border' : 'p-3 border-b md:border'}`}>
+    <div 
+      onClick={onClick}
+      className={`flex items-center gap-3 bg-rpg-800 border-rpg-700 rounded-lg shadow-md cursor-pointer hover:bg-rpg-700 transition-colors select-none ${compact ? 'p-2 border' : 'p-3 border-b md:border'}`}
+      title="Clique para Opções / Dev Mode"
+    >
       {/* Avatar / Class Icon */}
       <div className="relative shrink-0">
         <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-rpg-700 border-2 border-rpg-accent flex items-center justify-center overflow-hidden">
