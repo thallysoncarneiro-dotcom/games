@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Message } from '../types';
 
@@ -5,9 +6,10 @@ interface ChatInterfaceProps {
   messages: Message[];
   onSendMessage: (text: string) => void;
   isTyping: boolean;
+  onSkip?: () => void;
 }
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isTyping }) => {
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isTyping, onSkip }) => {
   const [input, setInput] = useState('');
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
@@ -81,6 +83,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMe
             placeholder="O que você faz?"
             className="flex-1 bg-rpg-900 text-white border border-rpg-600 rounded-md px-4 py-3 focus:outline-none focus:border-rpg-accent focus:ring-1 focus:ring-rpg-accent transition-all disabled:opacity-50"
           />
+          {onSkip && (
+              <button
+                type="button"
+                onClick={onSkip}
+                disabled={isTyping}
+                title="Pular/Continuar (Sem falar nada)"
+                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50 transition-colors border border-gray-600"
+              >
+                ⏩
+              </button>
+          )}
           <button
             type="submit"
             disabled={!input.trim() || isTyping}
